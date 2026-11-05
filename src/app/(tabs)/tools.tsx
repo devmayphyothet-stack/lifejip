@@ -7,7 +7,6 @@ import {
   CloudUpload,
   HeartPulse,
   MapPin,
-  Pill,
   Save,
   ShieldAlert,
   Sparkles,
@@ -25,8 +24,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CurrencyConverterCard } from '@/components/calculators/CurrencyConverterCard';
 import { WageCalculatorCard } from '@/components/calculators/WageCalculatorCard';
-import { MapFinderCard } from '@/components/medi/MapFinderCard';
-import { PrescriptionDecoderCard } from '@/components/medi/PrescriptionDecoderCard';
+import { CommunityTipsCard } from '@/components/ai/CommunityTipsCard';
+import { DocumentScannerCard } from '@/components/ai/DocumentScannerCard';
 import { EmergencyAllergyModal } from '@/components/modals/EmergencyAllergyModal';
 import { AppText } from '@/components/ui/AppText';
 import {
@@ -53,7 +52,11 @@ import {
 } from '@/services/sync';
 import type { EmergencyProfile } from '@/types';
 
-type ToolsTabMode = 'calculators' | 'emergency_visa' | 'saved_medi';
+type ToolsTabMode =
+  | 'calculators'
+  | 'ai_scanner'
+  | 'emergency_visa'
+  | 'community';
 
 const BLOOD_TYPES = [
   'O+ (RH+ O형)',
@@ -94,11 +97,13 @@ const QUICK_ALLERGY_PRESETS = [
 export default function ToolsScreen() {
   const params = useLocalSearchParams<{ section?: string }>();
   const initialSection: ToolsTabMode =
-    params.section === 'emergency_visa'
-      ? 'emergency_visa'
-      : params.section === 'saved_medi'
-        ? 'saved_medi'
-        : 'calculators';
+    params.section === 'ai_scanner'
+      ? 'ai_scanner'
+      : params.section === 'emergency_visa'
+        ? 'emergency_visa'
+        : params.section === 'community'
+          ? 'community'
+          : 'calculators';
 
   const [activeSection, setActiveSection] =
     useState<ToolsTabMode>(initialSection);
@@ -109,8 +114,9 @@ export default function ToolsScreen() {
     setLastParamSection(params.section);
     if (
       params.section === 'calculators' ||
+      params.section === 'ai_scanner' ||
       params.section === 'emergency_visa' ||
-      params.section === 'saved_medi'
+      params.section === 'community'
     ) {
       setActiveSection(params.section);
     }
@@ -216,7 +222,7 @@ export default function ToolsScreen() {
             </Pressable>
           </View>
 
-          {/* 3-Way Section Switcher */}
+          {/* 4-Way Section Switcher */}
           <View style={styles.segmentedControl}>
             <Pressable
               onPress={() => setActiveSection('calculators')}
@@ -226,7 +232,7 @@ export default function ToolsScreen() {
               ]}
             >
               <Calculator
-                size={17}
+                size={16}
                 color={
                   activeSection === 'calculators'
                     ? '#FFFFFF'
@@ -241,7 +247,34 @@ export default function ToolsScreen() {
                     : Palette.textSecondary
                 }
               >
-                급여 · 환율 계산
+                급여 · 환율
+              </AppText>
+            </Pressable>
+
+            <Pressable
+              onPress={() => setActiveSection('ai_scanner')}
+              style={[
+                styles.segmentBtn,
+                activeSection === 'ai_scanner' && styles.segmentBtnViolet,
+              ]}
+            >
+              <Sparkles
+                size={16}
+                color={
+                  activeSection === 'ai_scanner'
+                    ? '#FFFFFF'
+                    : Palette.textSecondary
+                }
+              />
+              <AppText
+                variant="badge"
+                color={
+                  activeSection === 'ai_scanner'
+                    ? '#FFFFFF'
+                    : Palette.textSecondary
+                }
+              >
+                AI 스캐너
               </AppText>
             </Pressable>
 
@@ -253,7 +286,7 @@ export default function ToolsScreen() {
               ]}
             >
               <HeartPulse
-                size={17}
+                size={16}
                 color={
                   activeSection === 'emergency_visa'
                     ? '#FFFFFF'
@@ -268,21 +301,21 @@ export default function ToolsScreen() {
                     : Palette.textSecondary
                 }
               >
-                응급 · 비자 · 백업
+                응급 · 비자
               </AppText>
             </Pressable>
 
             <Pressable
-              onPress={() => setActiveSection('saved_medi')}
+              onPress={() => setActiveSection('community')}
               style={[
                 styles.segmentBtn,
-                activeSection === 'saved_medi' && styles.segmentBtnTeal,
+                activeSection === 'community' && styles.segmentBtnTeal,
               ]}
             >
-              <Pill
-                size={17}
+              <Bookmark
+                size={16}
                 color={
-                  activeSection === 'saved_medi'
+                  activeSection === 'community'
                     ? '#FFFFFF'
                     : Palette.textSecondary
                 }
@@ -290,12 +323,12 @@ export default function ToolsScreen() {
               <AppText
                 variant="badge"
                 color={
-                  activeSection === 'saved_medi'
+                  activeSection === 'community'
                     ? '#FFFFFF'
                     : Palette.textSecondary
                 }
               >
-                약봉투 · 저장회화
+                꿀팁 · 저장
               </AppText>
             </Pressable>
           </View>
@@ -305,6 +338,13 @@ export default function ToolsScreen() {
             <View style={styles.sectionStack}>
               <WageCalculatorCard />
               <CurrencyConverterCard />
+            </View>
+          ) : null}
+
+          {/* SECTION 2: VISION AI DOCUMENT SCANNER */}
+          {activeSection === 'ai_scanner' ? (
+            <View style={styles.sectionStack}>
+              <DocumentScannerCard />
             </View>
           ) : null}
 
@@ -592,11 +632,11 @@ export default function ToolsScreen() {
             </View>
           ) : null}
 
-          {/* SECTION 3: PRESCRIPTION DECODER, MAP FINDER & SAVED PHRASES */}
-          {activeSection === 'saved_medi' ? (
+          {/* SECTION 4: COMMUNITY TIPS & SAVED PHRASES */}
+          {activeSection === 'community' ? (
             <View style={styles.sectionStack}>
-              <PrescriptionDecoderCard />
-              <MapFinderCard />
+              {/* Community Tips Feed & Add Form */}
+              <CommunityTipsCard />
 
               {/* Saved / Bookmarked Phrases */}
               <View style={styles.card}>
@@ -650,26 +690,6 @@ export default function ToolsScreen() {
                     </View>
                   ))
                 )}
-              </View>
-
-              {/* V3 Vision AI Preview */}
-              <View style={[styles.roadmapCard, styles.roadmapViolet]}>
-                <View style={styles.cardHeaderRow}>
-                  <Sparkles size={18} color={Palette.aiAccent} />
-                  <AppText variant="badge" color={Palette.aiAccent}>
-                    Phase 3 (V3) Vision AI
-                  </AppText>
-                </View>
-                <AppText
-                  variant="h3"
-                  color={Palette.textPrimary}
-                  script="korean"
-                >
-                  AI 고지서 · 계약서 · 처방전 카메라 번역기
-                </AppText>
-                <AppText variant="burmese" color={Palette.textSecondary}>
-                  관리비 မီတာစာရွက်၊ အိမ်ငှားစာချုပ် နှင့် ဆေးစာများကို ဓာတ်ပုံရိုက်ရုံဖြင့် မြန်မာလို အနှစ်ချုပ်ရှင်းပြပေးမည့် AI Scanner (Phase 3)။
-                </AppText>
               </View>
             </View>
           ) : null}
@@ -754,6 +774,9 @@ const styles = StyleSheet.create({
   },
   segmentBtnBlue: {
     backgroundColor: Palette.secondary,
+  },
+  segmentBtnViolet: {
+    backgroundColor: Palette.aiAccent,
   },
   segmentBtnDanger: {
     backgroundColor: Palette.danger,

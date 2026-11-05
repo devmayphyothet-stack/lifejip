@@ -71,12 +71,31 @@ create table if not exists public.user_sync_profiles (
   updated_at timestamptz not null default now()
 );
 
+-- 6. V3 Community Survival Tips
+create table if not exists public.community_tips (
+  id text primary key,
+  author_name text not null,
+  author_badge text not null default '미얀마 교민',
+  category_ko text not null default '생활 꿀팁',
+  title_ko text not null,
+  content_mm text not null,
+  likes integer not null default 1,
+  created_at timestamptz not null default now()
+);
+
 -- Enable Row Level Security
 alter table public.admin_guides enable row level security;
 alter table public.recycling_items enable row level security;
 alter table public.medical_symptoms enable row level security;
 alter table public.situation_vocabs enable row level security;
 alter table public.user_sync_profiles enable row level security;
+alter table public.community_tips enable row level security;
+
+create policy "Allow public read on community_tips"
+  on public.community_tips for select using (true);
+
+create policy "Allow public insert on community_tips"
+  on public.community_tips for insert with check (true);
 
 create policy "Allow public read on admin_guides"
   on public.admin_guides for select using (true);

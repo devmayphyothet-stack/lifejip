@@ -314,15 +314,81 @@ export default function HomeScreen() {
             </Pressable>
           </View>
 
-          {/* V2 Visa Expiry Countdown, Prescription Decoder & Night Pharmacy Map */}
+          {/* V2 & V3 Smart Tools: Visa, Prescription, AI Scanner & Community */}
           <View style={styles.sectionTitleRow}>
             <AppText variant="h3" color={Palette.textPrimary}>
-              비자 알림 · 약봉투 해독 · 심야약국 지도 (V2 도구)
+              스마트 비자 · AI 서류 스캐너 · 꿀팁 커뮤니티 (V2 & V3 도구)
             </AppText>
           </View>
 
           <View style={styles.featureHooksRow}>
-            {/* Visa Countdown Widget (Connected to EmergencyProfile) */}
+            {/* 1. Vision AI Document Scanner */}
+            <Pressable
+              onPress={() =>
+                router.push({
+                  pathname: '/tools',
+                  params: { section: 'ai_scanner' },
+                })
+              }
+              style={[styles.hookCard, styles.aiHookCard]}
+            >
+              <View style={styles.hookHeaderRow}>
+                <View style={styles.aiBadge}>
+                  <Sparkles size={16} color="#FFFFFF" />
+                  <AppText variant="badge" color="#FFFFFF">
+                    V3 AI 서류 스캐너
+                  </AppText>
+                </View>
+                <AppText variant="caption" color={Palette.aiAccent}>
+                  Vision AI
+                </AppText>
+              </View>
+              <AppText variant="h3" color={Palette.textPrimary} script="korean">
+                관리비 · 도시가스 · 계약서 · 약봉투 카메라 번역
+              </AppText>
+              <AppText variant="burmese" color={Palette.textSecondary}>
+                ကိုရီးယား မီတာစာရွက်၊ အိမ်ငှားစာချုပ်၊ ဆေးအိတ် သို့မဟုတ် အစိုးရရုံးစာများကို ဓာတ်ပုံရိုက်ရုံဖြင့် မြန်မာလို အနှစ်ချုပ် ကြည့်ရှုပါ။
+              </AppText>
+            </Pressable>
+
+            {/* 2. AI Medical Pre-Check & Q&A */}
+            <Pressable
+              onPress={() =>
+                router.push({
+                  pathname: '/medi',
+                  params: { mode: 'ai_precheck' },
+                })
+              }
+              style={[
+                styles.hookCard,
+                { backgroundColor: '#F0FDFA', borderColor: '#99F6E4' },
+              ]}
+            >
+              <View style={styles.hookHeaderRow}>
+                <View
+                  style={[
+                    styles.aiBadge,
+                    { backgroundColor: Palette.primary },
+                  ]}
+                >
+                  <BriefcaseMedical size={16} color="#FFFFFF" />
+                  <AppText variant="badge" color="#FFFFFF">
+                    AI 진료상담 · Q&A
+                  </AppText>
+                </View>
+                <AppText variant="caption" color={Palette.primaryDark}>
+                  Medi AI
+                </AppText>
+              </View>
+              <AppText variant="h3" color={Palette.textPrimary} script="korean">
+                병원 가기 전 AI 증상 사전상담 & 산재·진료비 안내
+              </AppText>
+              <AppText variant="burmese" color={Palette.textSecondary}>
+                ဆေးရုံမသွားမီ အမေးများဆုံးမေးခွန်းများ၊ ကျန်းမာရေးအာမခံ ကုန်ကျစရိတ် နှင့် လုပ်ငန်းခွင်ထိခိုက်မှု (산재) လမ်းညွှန်။
+              </AppText>
+            </Pressable>
+
+            {/* 3. Visa Countdown Widget */}
             <Pressable
               onPress={() =>
                 router.push({
@@ -360,7 +426,7 @@ export default function HomeScreen() {
               </AppText>
             </Pressable>
 
-            {/* Prescription Bag Decoder & Night Pharmacy Map Card */}
+            {/* 4. Prescription Bag Decoder & Night Pharmacy Map Card */}
             <Pressable
               onPress={() =>
                 router.push({
@@ -368,16 +434,24 @@ export default function HomeScreen() {
                   params: { mode: 'prescription_otc' },
                 })
               }
-              style={[styles.hookCard, styles.aiHookCard]}
+              style={[
+                styles.hookCard,
+                { backgroundColor: Palette.secondarySoft, borderColor: '#93C5FD' },
+              ]}
             >
               <View style={styles.hookHeaderRow}>
-                <View style={styles.aiBadge}>
+                <View
+                  style={[
+                    styles.aiBadge,
+                    { backgroundColor: Palette.secondary },
+                  ]}
+                >
                   <Sparkles size={16} color="#FFFFFF" />
                   <AppText variant="badge" color="#FFFFFF">
-                    처방전 해독 · 심야약국 지도
+                    처방전 해독 · 심야약국
                   </AppText>
                 </View>
-                <AppText variant="caption" color={Palette.aiAccent}>
+                <AppText variant="caption" color={Palette.secondary}>
                   Medi & Map
                 </AppText>
               </View>
@@ -386,6 +460,43 @@ export default function HomeScreen() {
               </AppText>
               <AppText variant="burmese" color={Palette.textSecondary}>
                 ဆေးအိတ် (처방전/약봉투: 식후 30분, 1일 3회) အဓိပ္ပာယ်ဖတ်နည်း နှင့် ညဖွင့်ဆေးဆိုင် (심야약국) Naver/KakaoMap မြေပုံရှာဖွေရန်။
+              </AppText>
+            </Pressable>
+
+            {/* 5. Community Tips Card */}
+            <Pressable
+              onPress={() =>
+                router.push({
+                  pathname: '/tools',
+                  params: { section: 'community' },
+                })
+              }
+              style={[
+                styles.hookCard,
+                { backgroundColor: '#FFFBEB', borderColor: '#FDE68A' },
+              ]}
+            >
+              <View style={styles.hookHeaderRow}>
+                <View
+                  style={[
+                    styles.aiBadge,
+                    { backgroundColor: Palette.warning },
+                  ]}
+                >
+                  <BookOpen size={16} color="#FFFFFF" />
+                  <AppText variant="badge" color="#FFFFFF">
+                    생활 꿀팁 커뮤니티
+                  </AppText>
+                </View>
+                <AppText variant="caption" color="#B45309">
+                  Community
+                </AppText>
+              </View>
+              <AppText variant="h3" color={Palette.textPrimary} script="korean">
+                미얀마 유학생 · 근로자 실전 생활 꿀팁
+              </AppText>
+              <AppText variant="burmese" color={Palette.textSecondary}>
+                ဘတ်စ်/ရထားစီးကတ် (기후동행카드)၊ ဆေးကုသစရိတ် အာမခံပြန်တောင်းနည်း နှင့် ကုန်ကျစရိတ်သက်သာစေမည့် အကြံပြုချက်များ။
               </AppText>
             </Pressable>
           </View>

@@ -1,6 +1,7 @@
 import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import {
   AlertCircle,
+  Bot,
   CheckSquare,
   ExternalLink,
   MapPin,
@@ -19,6 +20,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { SymptomPreCheckCard } from '@/components/ai/SymptomPreCheckCard';
 import { MapFinderCard } from '@/components/medi/MapFinderCard';
 import { PrescriptionDecoderCard } from '@/components/medi/PrescriptionDecoderCard';
 import { DoctorShowModal } from '@/components/modals/DoctorShowModal';
@@ -47,7 +49,7 @@ import type {
   EmergencyProfile,
 } from '@/types';
 
-type MediTabMode = 'symptoms' | 'prescription_otc' | 'maps';
+type MediTabMode = 'symptoms' | 'prescription_otc' | 'maps' | 'ai_precheck';
 
 export default function MediHelperScreen() {
   const params = useLocalSearchParams<{ mode?: string }>();
@@ -56,7 +58,9 @@ export default function MediHelperScreen() {
       ? 'prescription_otc'
       : params.mode === 'maps'
         ? 'maps'
-        : 'symptoms';
+        : params.mode === 'ai_precheck'
+          ? 'ai_precheck'
+          : 'symptoms';
 
   const [mediTab, setMediTab] = useState<MediTabMode>(initialMode);
   const [lastParamMode, setLastParamMode] = useState<string | undefined>(
@@ -67,7 +71,8 @@ export default function MediHelperScreen() {
     if (
       params.mode === 'symptoms' ||
       params.mode === 'prescription_otc' ||
-      params.mode === 'maps'
+      params.mode === 'maps' ||
+      params.mode === 'ai_precheck'
     ) {
       setMediTab(params.mode);
     }
@@ -226,6 +231,29 @@ export default function MediHelperScreen() {
                 color={mediTab === 'maps' ? '#FFFFFF' : Palette.textSecondary}
               >
                 심야약국 · 지도
+              </AppText>
+            </Pressable>
+
+            <Pressable
+              onPress={() => setMediTab('ai_precheck')}
+              style={[
+                styles.modeBtn,
+                mediTab === 'ai_precheck' && styles.modeBtnActiveViolet,
+              ]}
+            >
+              <Bot
+                size={17}
+                color={
+                  mediTab === 'ai_precheck' ? '#FFFFFF' : Palette.textSecondary
+                }
+              />
+              <AppText
+                variant="badge"
+                color={
+                  mediTab === 'ai_precheck' ? '#FFFFFF' : Palette.textSecondary
+                }
+              >
+                AI 상담 · Q&A
               </AppText>
             </Pressable>
           </View>
@@ -648,6 +676,8 @@ export default function MediHelperScreen() {
           ) : null}
 
           {mediTab === 'maps' ? <MapFinderCard /> : null}
+
+          {mediTab === 'ai_precheck' ? <SymptomPreCheckCard /> : null}
         </View>
       </ScrollView>
 
@@ -721,6 +751,9 @@ const styles = StyleSheet.create({
   },
   modeBtnActive: {
     backgroundColor: Palette.primary,
+  },
+  modeBtnActiveViolet: {
+    backgroundColor: Palette.aiAccent,
   },
   recommendationCard: {
     backgroundColor: Palette.surface,
