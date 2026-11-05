@@ -1,5 +1,5 @@
--- LifeJip V1 Supabase Database Schema
--- Offline-first cloud sync tables for admin_guides, recycling_items, medical_symptoms, situation_vocabs
+-- LifeJip V1 + V2 Supabase Database Schema
+-- Offline-first cloud sync tables for admin_guides, recycling_items, medical_symptoms, situation_vocabs, and user_sync_profiles
 
 create extension if not exists "uuid-ossp";
 
@@ -62,11 +62,21 @@ create table if not exists public.situation_vocabs (
   updated_at timestamptz not null default now()
 );
 
--- Enable Row Level Security (Public Read Access for V1 Offline-First Sync)
+-- 5. V2 User Cloud Sync Profiles (Checklists, Bookmarks, Visa Countdown & Emergency Card)
+create table if not exists public.user_sync_profiles (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  completed_steps jsonb not null default '{}'::jsonb,
+  bookmarked_phrases text[] not null default '{}',
+  emergency_profile jsonb not null default '{}'::jsonb,
+  updated_at timestamptz not null default now()
+);
+
+-- Enable Row Level Security
 alter table public.admin_guides enable row level security;
 alter table public.recycling_items enable row level security;
 alter table public.medical_symptoms enable row level security;
 alter table public.situation_vocabs enable row level security;
+alter table public.user_sync_profiles enable row level security;
 
 create policy "Allow public read on admin_guides"
   on public.admin_guides for select using (true);
@@ -80,3 +90,11 @@ create policy "Allow public read on medical_symptoms"
 create policy "Allow public read on situation_vocabs"
   on public.situation_vocabs for select using (true);
 
+create policy "Users can view own sync profile"
+  on public.user_sync_profiles for select using (auth.uid() = user_id);
+
+create policy "Users can upsert own sync profile"
+  on public.user_sync_profiles for insert with check (auth.uid() = user_id);
+
+create policy "Users can update own sync profile"
+  on public.user_sync_profiles for update using (auth.uid() = user_id);

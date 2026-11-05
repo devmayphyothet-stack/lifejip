@@ -1,8 +1,10 @@
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import {
   Bookmark,
   Calculator,
+  CalendarClock,
   Check,
+  CloudUpload,
   HeartPulse,
   MapPin,
   Pill,
@@ -21,6 +23,10 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { CurrencyConverterCard } from '@/components/calculators/CurrencyConverterCard';
+import { WageCalculatorCard } from '@/components/calculators/WageCalculatorCard';
+import { MapFinderCard } from '@/components/medi/MapFinderCard';
+import { PrescriptionDecoderCard } from '@/components/medi/PrescriptionDecoderCard';
 import { EmergencyAllergyModal } from '@/components/modals/EmergencyAllergyModal';
 import { AppText } from '@/components/ui/AppText';
 import {
@@ -40,7 +46,14 @@ import {
   saveBookmarkedPhrases,
   saveEmergencyProfile,
 } from '@/services/storage';
+import {
+  type SyncStatusResult,
+  getLastSyncTimestamp,
+  performCloudSync,
+} from '@/services/sync';
 import type { EmergencyProfile } from '@/types';
+
+type ToolsTabMode = 'calculators' | 'emergency_visa' | 'saved_medi';
 
 const BLOOD_TYPES = [
   'O+ (RH+ O형)',
@@ -48,6 +61,15 @@ const BLOOD_TYPES = [
   'B+ (RH+ B형)',
   'AB+ (RH+ AB형)',
   '모름 (မသိပါ)',
+];
+
+const VISA_TYPES = [
+  'D-2 (유학)',
+  'D-4 (어학연수)',
+  'E-9 (비전문취업)',
+  'E-7 (특정활동)',
+  'G-1 (기타)',
+  'D-10 (구직)',
 ];
 
 const QUICK_ALLERGY_PRESETS = [
@@ -69,41 +91,46 @@ const QUICK_ALLERGY_PRESETS = [
   },
 ];
 
-const PRESCRIPTION_DECODER_ITEMS = [
-  {
-    ko: '1일 3회 · 3일분',
-    mm: 'တစ်နေ့ (၃) ကြိမ် · (၃) ရက်စာ',
-    detailMm: 'မနက်၊ နေ့လယ်၊ ညနေ တစ်ထုပ်စီ သောက်ရန်',
-  },
-  {
-    ko: '식후 30분 복용',
-    mm: 'ထမင်းစားပြီး မိနစ် (၃၀) အကြာ သောက်ရန်',
-    detailMm: 'အစာအိမ်မထိခိုက်စေရန် အစာစားပြီးမှ သောက်ပါ',
-  },
-  {
-    ko: '식전 30분 / 공복 복용',
-    mm: 'ထမင်းမစားမီ မိနစ် (၃၀) / အစာအိမ်အလွတ်တွင် သောက်ရန်',
-    detailMm: 'အစာအိမ်ဆေး သို့မဟုတ် အချို့ဆေးများအတွက်',
-  },
-  {
-    ko: '취침 전 1포(1정) 복용',
-    mm: 'အိပ်ရာမဝင်မီ (၁) ထုပ် / (၁) လုံး သောက်ရန်',
-    detailMm: 'အိပ်ငိုက်စေတတ်သော နှာစေး/ဓာတ်မတည့်ဆေးများ ပါဝင်တတ်သည်',
-  },
-];
-
 export default function ToolsScreen() {
+  const params = useLocalSearchParams<{ section?: string }>();
+  const initialSection: ToolsTabMode =
+    params.section === 'emergency_visa'
+      ? 'emergency_visa'
+      : params.section === 'saved_medi'
+        ? 'saved_medi'
+        : 'calculators';
+
+  const [activeSection, setActiveSection] =
+    useState<ToolsTabMode>(initialSection);
+  const [lastParamSection, setLastParamSection] = useState<string | undefined>(
+    params.section
+  );
+  if (params.section !== lastParamSection) {
+    setLastParamSection(params.section);
+    if (
+      params.section === 'calculators' ||
+      params.section === 'emergency_visa' ||
+      params.section === 'saved_medi'
+    ) {
+      setActiveSection(params.section);
+    }
+  }
+
   const [profile, setProfile] = useState<EmergencyProfile>(
     DEFAULT_EMERGENCY_PROFILE
   );
   const [bookmarkedIds, setBookmarkedIds] = useState<string[]>([]);
   const [savedNotice, setSavedNotice] = useState(false);
   const [showEmergencyModal, setShowEmergencyModal] = useState(false);
+  const [syncResult, setSyncResult] = useState<SyncStatusResult | null>(null);
+  const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
       loadEmergencyProfile().then(setProfile);
       loadBookmarkedPhrases().then(setBookmarkedIds);
+      getLastSyncTimestamp().then(setLastSyncTime);
     }, [])
   );
 
@@ -111,6 +138,15 @@ export default function ToolsScreen() {
     await saveEmergencyProfile(profile);
     setSavedNotice(true);
     setTimeout(() => setSavedNotice(false), 2500);
+  };
+
+  const handleCloudSync = async () => {
+    setIsSyncing(true);
+    await saveEmergencyProfile(profile);
+    const res = await performCloudSync();
+    setSyncResult(res);
+    setLastSyncTime(res.lastSyncedAt);
+    setIsSyncing(false);
   };
 
   const removeBookmark = (id: string) => {
@@ -121,6 +157,17 @@ export default function ToolsScreen() {
     });
   };
 
+  const getVisaDDay = () => {
+    if (!profile.visaExpiryDate) return null;
+    const expiry = new Date(profile.visaExpiryDate);
+    if (Number.isNaN(expiry.getTime())) return null;
+    const now = new Date();
+    return Math.ceil(
+      (expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
+    );
+  };
+
+  const visaDDay = getVisaDDay();
   const savedPhrases = SITUATION_VOCABS.filter((p) =>
     bookmarkedIds.includes(p.id)
   );
@@ -135,27 +182,27 @@ export default function ToolsScreen() {
           {/* Header */}
           <View style={styles.header}>
             <AppText variant="h1" color={Palette.textPrimary} script="korean">
-              응급 · 주소 카드 & 생활 도구 (Tools & Saved)
+              계산기 · 응급카드 · 약봉투 도구 (Tools & Saved)
             </AppText>
             <AppText variant="burmese" color={Palette.textSecondary}>
-              အင်တာနက်မရှိချိန်တွင်ပါ အသုံးပြုနိုင်သော အရေးပေါ် ဆေးဘက်ဆိုင်ရာကတ်၊ ကိုရီးယားလိပ်စာကတ် နှင့် ဆေးအိတ်အညွှန်း ဖတ်နည်း
+              အချိန်ပိုင်းလစာ/주휴수당 တွက်စက်၊ KRW ⇄ MMK ငွေလဲနှုန်းတွက်စက်၊ အရေးပေါ်ဆေးဘက်ဆိုင်ရာကတ်၊ ဗီဇာသက်တမ်း D-Day နှင့် ဆေးအိတ်ဖတ်စက်
             </AppText>
           </View>
 
-          {/* Full-Screen SOS Card Trigger Banner */}
+          {/* Top Full-Screen SOS Card Trigger Banner */}
           <View style={styles.sosBanner}>
             <View style={styles.flex1}>
               <View style={styles.sosBadge}>
                 <ShieldAlert size={16} color="#FFFFFF" />
                 <AppText variant="badge" color="#FFFFFF">
-                  OFFLINE EMERGENCY CARD
+                  OFFLINE EMERGENCY & ADDRESS CARD
                 </AppText>
               </View>
               <AppText variant="h2" color={Palette.danger} script="korean">
                 응급실 · 구급대원 · 택시용 전체화면 카드
               </AppText>
               <AppText variant="burmese" color={Palette.textSecondary}>
-                သိမ်းဆည်းထားသော သွေးအမျိုးအစား၊ ဆေးဓာတ်မတည့်မှု နှင့် နေရပ်လိပ်စာကို စာလုံးကြီး မျက်နှာပြင်အပြည့်ဖြင့် ဖွင့်ပြရန် —
+                သွေးအမျိုးအစား၊ ဆေးဓာတ်မတည့်မှု နှင့် နေရပ်လိပ်စာကို စာလုံးကြီး မျက်နှာပြင်အပြည့်ဖြင့် ဖွင့်ပြရန် —
               </AppText>
             </View>
             <Pressable
@@ -169,314 +216,463 @@ export default function ToolsScreen() {
             </Pressable>
           </View>
 
-          {/* Editable Offline Emergency & Korean Address Profile Form */}
-          <View style={styles.card}>
-            <View style={styles.cardHeaderRow}>
-              <HeartPulse size={20} color={Palette.danger} />
-              <AppText variant="h2" color={Palette.textPrimary} script="korean">
-                내 응급 의료 · 알레르기 · 주소 정보 설정
-              </AppText>
-            </View>
-            <AppText variant="burmese" color={Palette.textSecondary}>
-              အောက်ပါအချက်အလက်များသည် သင့်ဖုန်းထဲတွင်သာ လုံခြုံစွာ သိမ်းဆည်းထားပြီး အင်တာနက်မရှိချိန်တွင်ပါ ဆရာဝန်အား ပြသနိုင်ပါသည်။
-            </AppText>
-
-            {/* Blood Type Selector */}
-            <View style={styles.fieldGroup}>
-              <AppText variant="bodyBold" color={Palette.textPrimary}>
-                1. 혈액형 (သွေးအမျိုးအစား ရွေးပါ)
-              </AppText>
-              <View style={styles.chipsWrap}>
-                {BLOOD_TYPES.map((bt) => {
-                  const active = profile.bloodType === bt;
-                  return (
-                    <Pressable
-                      key={bt}
-                      onPress={() =>
-                        setProfile((prev) => ({ ...prev, bloodType: bt }))
-                      }
-                      style={[
-                        styles.selectChip,
-                        active && styles.selectChipDanger,
-                      ]}
-                    >
-                      <AppText
-                        variant="badge"
-                        color={active ? '#FFFFFF' : Palette.textPrimary}
-                      >
-                        {bt}
-                      </AppText>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            </View>
-
-            {/* Quick Allergy Presets + Input */}
-            <View style={styles.fieldGroup}>
-              <AppText variant="bodyBold" color={Palette.textPrimary}>
-                2. 약물 · 음식 알레르기 (ဆေးနှင့် အစားအသောက် ဓာတ်မတည့်မှု)
-              </AppText>
-              <View style={styles.chipsWrap}>
-                {QUICK_ALLERGY_PRESETS.map((preset) => {
-                  const active = profile.allergiesKo === preset.ko;
-                  return (
-                    <Pressable
-                      key={preset.ko}
-                      onPress={() =>
-                        setProfile((prev) => ({
-                          ...prev,
-                          allergiesKo: preset.ko,
-                          allergiesMm: preset.mm,
-                        }))
-                      }
-                      style={[
-                        styles.selectChip,
-                        active && styles.selectChipTeal,
-                      ]}
-                    >
-                      <AppText
-                        variant="caption"
-                        color={active ? '#FFFFFF' : Palette.textPrimary}
-                      >
-                        {preset.ko} ({preset.mm})
-                      </AppText>
-                    </Pressable>
-                  );
-                })}
-              </View>
-              <TextInput
-                value={profile.allergiesKo}
-                onChangeText={(text) =>
-                  setProfile((prev) => ({ ...prev, allergiesKo: text }))
-                }
-                placeholder="한국어로 알레르기 정보 입력..."
-                placeholderTextColor={Palette.textMuted}
-                style={styles.input}
-              />
-            </View>
-
-            {/* Chronic Conditions & Medications */}
-            <View style={styles.fieldGroup}>
-              <AppText variant="bodyBold" color={Palette.textPrimary}>
-                3. 기저질환 및 복용 중인 약 (ရောဂါအခံ နှင့် လက်ရှိသောက်နေသောဆေး)
-              </AppText>
-              <TextInput
-                value={profile.chronicConditionsKo}
-                onChangeText={(text) =>
-                  setProfile((prev) => ({ ...prev, chronicConditionsKo: text }))
-                }
-                placeholder="예: 고혈압, 당뇨, 천식 / 기저질환 없음"
-                placeholderTextColor={Palette.textMuted}
-                style={styles.input}
-              />
-              <TextInput
-                value={profile.medicationsKo}
-                onChangeText={(text) =>
-                  setProfile((prev) => ({ ...prev, medicationsKo: text }))
-                }
-                placeholder="현재 복용 중인 약 (예: 혈압약 매일 복용 중)"
-                placeholderTextColor={Palette.textMuted}
-                style={styles.input}
-              />
-            </View>
-
-            {/* My Korean Address (도로명 주소) */}
-            <View style={styles.fieldGroup}>
-              <View style={styles.cardHeaderRow}>
-                <MapPin size={18} color={Palette.secondary} />
-                <AppText variant="bodyBold" color={Palette.secondary}>
-                  4. 내 한국 도로명 주소 (နေထိုင်ရာ ကိုရီးယားလိပ်စာ — တက္ကစီ/119 ပြရန်)
-                </AppText>
-              </View>
-              <TextInput
-                value={profile.koreanAddressKo}
-                onChangeText={(text) =>
-                  setProfile((prev) => ({ ...prev, koreanAddressKo: text }))
-                }
-                placeholder="예: 서울특별시 용산구 한남대로 28길 12, 201호"
-                placeholderTextColor={Palette.textMuted}
-                style={styles.input}
-              />
-            </View>
-
-            {/* Emergency Contact & Visa Expiry */}
-            <View style={styles.twoColRow}>
-              <View style={[styles.fieldGroup, styles.flex1]}>
-                <AppText variant="bodyBold" color={Palette.textPrimary}>
-                  5. 비상연락처 (အရေးပေါ်ဖုန်းနံပါတ်)
-                </AppText>
-                <TextInput
-                  value={profile.emergencyContactPhone}
-                  onChangeText={(text) =>
-                    setProfile((prev) => ({
-                      ...prev,
-                      emergencyContactPhone: text,
-                    }))
-                  }
-                  placeholder="010-0000-0000"
-                  placeholderTextColor={Palette.textMuted}
-                  style={styles.input}
-                />
-              </View>
-
-              <View style={[styles.fieldGroup, styles.flex1]}>
-                <AppText variant="bodyBold" color={Palette.textPrimary}>
-                  6. 비자 만료일 (ဗီဇာကုန်ဆုံးရက် YYYY-MM-DD)
-                </AppText>
-                <TextInput
-                  value={profile.visaExpiryDate}
-                  onChangeText={(text) =>
-                    setProfile((prev) => ({ ...prev, visaExpiryDate: text }))
-                  }
-                  placeholder="2027-03-31"
-                  placeholderTextColor={Palette.textMuted}
-                  style={styles.input}
-                />
-              </View>
-            </View>
-
-            {/* Save Button */}
+          {/* 3-Way Section Switcher */}
+          <View style={styles.segmentedControl}>
             <Pressable
-              onPress={handleSaveProfile}
-              style={({ pressed }) => [
-                styles.saveBtn,
-                savedNotice && { backgroundColor: Palette.success },
-                pressed && { opacity: 0.9 },
+              onPress={() => setActiveSection('calculators')}
+              style={[
+                styles.segmentBtn,
+                activeSection === 'calculators' && styles.segmentBtnBlue,
               ]}
             >
-              {savedNotice ? (
-                <Check size={20} color="#FFFFFF" />
-              ) : (
-                <Save size={20} color="#FFFFFF" />
-              )}
-              <AppText variant="bodyBold" color="#FFFFFF">
-                {savedNotice
-                  ? '저장 완료! (သိမ်းဆည်းပြီးပါပြီ)'
-                  : '내 응급·주소 카드 저장하기 (သိမ်းဆည်းရန်)'}
+              <Calculator
+                size={17}
+                color={
+                  activeSection === 'calculators'
+                    ? '#FFFFFF'
+                    : Palette.textSecondary
+                }
+              />
+              <AppText
+                variant="badge"
+                color={
+                  activeSection === 'calculators'
+                    ? '#FFFFFF'
+                    : Palette.textSecondary
+                }
+              >
+                급여 · 환율 계산
+              </AppText>
+            </Pressable>
+
+            <Pressable
+              onPress={() => setActiveSection('emergency_visa')}
+              style={[
+                styles.segmentBtn,
+                activeSection === 'emergency_visa' && styles.segmentBtnDanger,
+              ]}
+            >
+              <HeartPulse
+                size={17}
+                color={
+                  activeSection === 'emergency_visa'
+                    ? '#FFFFFF'
+                    : Palette.textSecondary
+                }
+              />
+              <AppText
+                variant="badge"
+                color={
+                  activeSection === 'emergency_visa'
+                    ? '#FFFFFF'
+                    : Palette.textSecondary
+                }
+              >
+                응급 · 비자 · 백업
+              </AppText>
+            </Pressable>
+
+            <Pressable
+              onPress={() => setActiveSection('saved_medi')}
+              style={[
+                styles.segmentBtn,
+                activeSection === 'saved_medi' && styles.segmentBtnTeal,
+              ]}
+            >
+              <Pill
+                size={17}
+                color={
+                  activeSection === 'saved_medi'
+                    ? '#FFFFFF'
+                    : Palette.textSecondary
+                }
+              />
+              <AppText
+                variant="badge"
+                color={
+                  activeSection === 'saved_medi'
+                    ? '#FFFFFF'
+                    : Palette.textSecondary
+                }
+              >
+                약봉투 · 저장회화
               </AppText>
             </Pressable>
           </View>
 
-          {/* Prescription & Medicine Bag Dosage Decoder (처방전 / 약봉투 읽는 법) */}
-          <View style={styles.card}>
-            <View style={styles.cardHeaderRow}>
-              <Pill size={20} color={Palette.primary} />
-              <AppText variant="h2" color={Palette.textPrimary} script="korean">
-                약봉투 · 처방전 복용법 해독기 (ဆေးအိတ်အညွှန်း ဖတ်နည်း)
-              </AppText>
+          {/* SECTION 1: WAGE & CURRENCY CALCULATORS */}
+          {activeSection === 'calculators' ? (
+            <View style={styles.sectionStack}>
+              <WageCalculatorCard />
+              <CurrencyConverterCard />
             </View>
-            <AppText variant="burmese" color={Palette.textSecondary}>
-              ကိုရီးယားဆေးဆိုင် (약국) မှ ပေးလိုက်သော ဆေးအိတ်ပေါ်ရှိ စာသားများ၏ အဓိပ္ပာယ် —
-            </AppText>
+          ) : null}
 
-            <View style={styles.decoderGrid}>
-              {PRESCRIPTION_DECODER_ITEMS.map((item) => (
-                <Pressable
-                  key={item.ko}
-                  onPress={() => speakKorean(item.ko)}
-                  style={styles.decoderCard}
-                >
-                  <View style={styles.decoderHeader}>
-                    <AppText
-                      variant="h3"
-                      color={Palette.primaryDark}
-                      script="korean"
-                    >
-                      {item.ko}
+          {/* SECTION 2: EMERGENCY PROFILE, VISA COUNTDOWN & SUPABASE CLOUD SYNC */}
+          {activeSection === 'emergency_visa' ? (
+            <View style={styles.sectionStack}>
+              {/* Visa Expiry Countdown & Cloud Sync Card */}
+              <View style={styles.visaCloudCard}>
+                <View style={styles.visaTopRow}>
+                  <View style={styles.cardHeaderRow}>
+                    <CalendarClock size={20} color="#B45309" />
+                    <AppText variant="h2" color={Palette.textPrimary} script="korean">
+                      비자 만료 D-Day & 클라우드 백업
                     </AppText>
-                    <Volume2 size={16} color={Palette.primary} />
                   </View>
-                  <AppText variant="bodyBold" color={Palette.textPrimary}>
-                    {item.mm}
-                  </AppText>
-                  <AppText variant="caption" color={Palette.textSecondary}>
-                    {item.detailMm}
-                  </AppText>
-                </Pressable>
-              ))}
-            </View>
-          </View>
+                  {visaDDay !== null ? (
+                    <View
+                      style={[
+                        styles.dDayBadge,
+                        visaDDay <= 60 && { backgroundColor: Palette.danger },
+                      ]}
+                    >
+                      <AppText variant="badge" color="#FFFFFF">
+                        {visaDDay >= 0
+                          ? `만료 D-${visaDDay}일`
+                          : `만료 D+${Math.abs(visaDDay)}일 경과`}
+                      </AppText>
+                    </View>
+                  ) : null}
+                </View>
 
-          {/* Saved / Bookmarked Phrases */}
-          <View style={styles.card}>
-            <View style={styles.cardHeaderRow}>
-              <Bookmark size={20} color={Palette.secondary} />
-              <AppText variant="h2" color={Palette.textPrimary} script="korean">
-                저장한 필수 회화 ({savedPhrases.length}개)
-              </AppText>
-            </View>
+                <AppText variant="burmese" color={Palette.textSecondary}>
+                  သင့်ဗီဇာ ({profile.visaType}) ကုန်ဆုံးရက်မှာ {profile.visaExpiryDate} ဖြစ်ပါသည်။ ဗီဇာမကုန်မီ (၄) လအလိုမှစ၍ HiKorea တွင် သက်တမ်းတိုး လျှောက်ထားနိုင်ပါသည်။
+                </AppText>
 
-            {savedPhrases.length === 0 ? (
-              <AppText variant="burmese" color={Palette.textSecondary}>
-                Phrasebook တွင် ★ နှိပ်၍ မှတ်သားထားသော စကားပြောများ ဤနေရာတွင် ပေါ်လာပါမည်။
-              </AppText>
-            ) : (
-              savedPhrases.map((phrase) => (
-                <View key={phrase.id} style={styles.savedPhraseRow}>
+                <View style={styles.syncRow}>
                   <View style={styles.flex1}>
-                    <AppText
-                      variant="h3"
-                      color={Palette.textPrimary}
-                      script="korean"
-                    >
-                      {phrase.korean}
+                    <AppText variant="caption" color={Palette.textSecondary}>
+                      마지막 동기화: {lastSyncTime ?? '로컬 오프라인 모드 작동 중'}
                     </AppText>
-                    <AppText variant="burmese" color={Palette.textSecondary}>
-                      {phrase.burmese} ({phrase.pronunciationMm})
-                    </AppText>
+                    {syncResult ? (
+                      <AppText variant="burmese" color={Palette.primaryDark}>
+                        ✓ {syncResult.messageMm}
+                      </AppText>
+                    ) : null}
                   </View>
                   <Pressable
-                    onPress={() => speakKorean(phrase.korean)}
-                    style={styles.iconCircleBtn}
+                    onPress={handleCloudSync}
+                    style={styles.syncBtn}
                   >
-                    <Volume2 size={18} color="#FFFFFF" />
-                  </Pressable>
-                  <Pressable
-                    onPress={() => removeBookmark(phrase.id)}
-                    style={styles.unbookmarkBtn}
-                  >
-                    <AppText variant="caption" color={Palette.danger}>
-                      삭제
+                    <CloudUpload size={18} color="#FFFFFF" />
+                    <AppText variant="badge" color="#FFFFFF">
+                      {isSyncing ? '동기화 중...' : '데이터 백업 · 동기화'}
                     </AppText>
                   </Pressable>
                 </View>
-              ))
-            )}
-          </View>
+              </View>
 
-          {/* V2 & V3 Upcoming Modules Preview */}
-          <View style={styles.roadmapRow}>
-            <View style={[styles.roadmapCard, styles.roadmapBlue]}>
-              <View style={styles.cardHeaderRow}>
-                <Calculator size={18} color={Palette.secondary} />
-                <AppText variant="badge" color={Palette.secondary}>
-                  Phase 2 (V2) 모듈
+              {/* Editable Offline Emergency & Korean Address Form */}
+              <View style={styles.card}>
+                <View style={styles.cardHeaderRow}>
+                  <HeartPulse size={20} color={Palette.danger} />
+                  <AppText
+                    variant="h2"
+                    color={Palette.textPrimary}
+                    script="korean"
+                  >
+                    내 응급 의료 · 알레르기 · 주소 정보 설정
+                  </AppText>
+                </View>
+
+                {/* Blood Type Selector */}
+                <View style={styles.fieldGroup}>
+                  <AppText variant="bodyBold" color={Palette.textPrimary}>
+                    1. 혈액형 (သွေးအမျိုးအစား ရွေးပါ)
+                  </AppText>
+                  <View style={styles.chipsWrap}>
+                    {BLOOD_TYPES.map((bt) => {
+                      const active = profile.bloodType === bt;
+                      return (
+                        <Pressable
+                          key={bt}
+                          onPress={() =>
+                            setProfile((prev) => ({ ...prev, bloodType: bt }))
+                          }
+                          style={[
+                            styles.selectChip,
+                            active && styles.selectChipDanger,
+                          ]}
+                        >
+                          <AppText
+                            variant="badge"
+                            color={active ? '#FFFFFF' : Palette.textPrimary}
+                          >
+                            {bt}
+                          </AppText>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </View>
+
+                {/* Visa Type Selector */}
+                <View style={styles.fieldGroup}>
+                  <AppText variant="bodyBold" color={Palette.textPrimary}>
+                    2. 체류자격 / 비자 종류 (ဗီဇာအမျိုးအစား ရွေးပါ)
+                  </AppText>
+                  <View style={styles.chipsWrap}>
+                    {VISA_TYPES.map((vt) => {
+                      const active = profile.visaType === vt;
+                      return (
+                        <Pressable
+                          key={vt}
+                          onPress={() =>
+                            setProfile((prev) => ({ ...prev, visaType: vt }))
+                          }
+                          style={[
+                            styles.selectChip,
+                            active && styles.selectChipBlue,
+                          ]}
+                        >
+                          <AppText
+                            variant="badge"
+                            color={active ? '#FFFFFF' : Palette.textPrimary}
+                          >
+                            {vt}
+                          </AppText>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </View>
+
+                {/* Quick Allergy Presets + Input */}
+                <View style={styles.fieldGroup}>
+                  <AppText variant="bodyBold" color={Palette.textPrimary}>
+                    3. 약물 · 음식 알레르기 (ဆေးနှင့် အစားအသောက် ဓာတ်မတည့်မှု)
+                  </AppText>
+                  <View style={styles.chipsWrap}>
+                    {QUICK_ALLERGY_PRESETS.map((preset) => {
+                      const active = profile.allergiesKo === preset.ko;
+                      return (
+                        <Pressable
+                          key={preset.ko}
+                          onPress={() =>
+                            setProfile((prev) => ({
+                              ...prev,
+                              allergiesKo: preset.ko,
+                              allergiesMm: preset.mm,
+                            }))
+                          }
+                          style={[
+                            styles.selectChip,
+                            active && styles.selectChipTeal,
+                          ]}
+                        >
+                          <AppText
+                            variant="caption"
+                            color={active ? '#FFFFFF' : Palette.textPrimary}
+                          >
+                            {preset.ko} ({preset.mm})
+                          </AppText>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                  <TextInput
+                    value={profile.allergiesKo}
+                    onChangeText={(text) =>
+                      setProfile((prev) => ({ ...prev, allergiesKo: text }))
+                    }
+                    placeholder="한국어로 알레르기 정보 입력..."
+                    placeholderTextColor={Palette.textMuted}
+                    style={styles.input}
+                  />
+                </View>
+
+                {/* Chronic Conditions & Medications */}
+                <View style={styles.fieldGroup}>
+                  <AppText variant="bodyBold" color={Palette.textPrimary}>
+                    4. 기저질환 및 복용 중인 약 (ရောဂါအခံ နှင့် လက်ရှိသောက်နေသောဆေး)
+                  </AppText>
+                  <TextInput
+                    value={profile.chronicConditionsKo}
+                    onChangeText={(text) =>
+                      setProfile((prev) => ({
+                        ...prev,
+                        chronicConditionsKo: text,
+                      }))
+                    }
+                    placeholder="예: 고혈압, 당뇨, 천식 / 기저질환 없음"
+                    placeholderTextColor={Palette.textMuted}
+                    style={styles.input}
+                  />
+                  <TextInput
+                    value={profile.medicationsKo}
+                    onChangeText={(text) =>
+                      setProfile((prev) => ({ ...prev, medicationsKo: text }))
+                    }
+                    placeholder="현재 복용 중인 약 (예: 혈압약 매일 복용 중)"
+                    placeholderTextColor={Palette.textMuted}
+                    style={styles.input}
+                  />
+                </View>
+
+                {/* My Korean Address */}
+                <View style={styles.fieldGroup}>
+                  <View style={styles.cardHeaderRow}>
+                    <MapPin size={18} color={Palette.secondary} />
+                    <AppText variant="bodyBold" color={Palette.secondary}>
+                      5. 내 한국 도로명 주소 (နေထိုင်ရာ ကိုရီးယားလိပ်စာ — တက္ကစီ/119 ပြရန်)
+                    </AppText>
+                  </View>
+                  <TextInput
+                    value={profile.koreanAddressKo}
+                    onChangeText={(text) =>
+                      setProfile((prev) => ({ ...prev, koreanAddressKo: text }))
+                    }
+                    placeholder="예: 서울특별시 용산구 한남대로 28길 12, 201호"
+                    placeholderTextColor={Palette.textMuted}
+                    style={styles.input}
+                  />
+                </View>
+
+                {/* Emergency Contact & Visa Expiry */}
+                <View style={styles.twoColRow}>
+                  <View style={[styles.fieldGroup, styles.flex1]}>
+                    <AppText variant="bodyBold" color={Palette.textPrimary}>
+                      6. 비상연락처 (အရေးပေါ်ဖုန်းနံပါတ်)
+                    </AppText>
+                    <TextInput
+                      value={profile.emergencyContactPhone}
+                      onChangeText={(text) =>
+                        setProfile((prev) => ({
+                          ...prev,
+                          emergencyContactPhone: text,
+                        }))
+                      }
+                      placeholder="010-0000-0000"
+                      placeholderTextColor={Palette.textMuted}
+                      style={styles.input}
+                    />
+                  </View>
+
+                  <View style={[styles.fieldGroup, styles.flex1]}>
+                    <AppText variant="bodyBold" color={Palette.textPrimary}>
+                      7. 비자 만료일 (ဗီဇာကုန်ဆုံးရက် YYYY-MM-DD)
+                    </AppText>
+                    <TextInput
+                      value={profile.visaExpiryDate}
+                      onChangeText={(text) =>
+                        setProfile((prev) => ({
+                          ...prev,
+                          visaExpiryDate: text,
+                        }))
+                      }
+                      placeholder="2027-03-31"
+                      placeholderTextColor={Palette.textMuted}
+                      style={styles.input}
+                    />
+                  </View>
+                </View>
+
+                {/* Save Button */}
+                <Pressable
+                  onPress={handleSaveProfile}
+                  style={({ pressed }) => [
+                    styles.saveBtn,
+                    savedNotice && { backgroundColor: Palette.success },
+                    pressed && { opacity: 0.9 },
+                  ]}
+                >
+                  {savedNotice ? (
+                    <Check size={20} color="#FFFFFF" />
+                  ) : (
+                    <Save size={20} color="#FFFFFF" />
+                  )}
+                  <AppText variant="bodyBold" color="#FFFFFF">
+                    {savedNotice
+                      ? '저장 완료! (သိမ်းဆည်းပြီးပါပြီ)'
+                      : '내 응급·비자·주소 카드 저장하기 (သိမ်းဆည်းရန်)'}
+                  </AppText>
+                </Pressable>
+              </View>
+            </View>
+          ) : null}
+
+          {/* SECTION 3: PRESCRIPTION DECODER, MAP FINDER & SAVED PHRASES */}
+          {activeSection === 'saved_medi' ? (
+            <View style={styles.sectionStack}>
+              <PrescriptionDecoderCard />
+              <MapFinderCard />
+
+              {/* Saved / Bookmarked Phrases */}
+              <View style={styles.card}>
+                <View style={styles.cardHeaderRow}>
+                  <Bookmark size={20} color={Palette.secondary} />
+                  <AppText
+                    variant="h2"
+                    color={Palette.textPrimary}
+                    script="korean"
+                  >
+                    저장한 필수 회화 ({savedPhrases.length}개)
+                  </AppText>
+                </View>
+
+                {savedPhrases.length === 0 ? (
+                  <AppText variant="burmese" color={Palette.textSecondary}>
+                    Phrasebook တွင် ★ နှိပ်၍ မှတ်သားထားသော စကားပြောများ ဤနေရာတွင် ပေါ်လာပါမည်။
+                  </AppText>
+                ) : (
+                  savedPhrases.map((phrase) => (
+                    <View key={phrase.id} style={styles.savedPhraseRow}>
+                      <View style={styles.flex1}>
+                        <AppText
+                          variant="h3"
+                          color={Palette.textPrimary}
+                          script="korean"
+                        >
+                          {phrase.korean}
+                        </AppText>
+                        <AppText
+                          variant="burmese"
+                          color={Palette.textSecondary}
+                        >
+                          {phrase.burmese} ({phrase.pronunciationMm})
+                        </AppText>
+                      </View>
+                      <Pressable
+                        onPress={() => speakKorean(phrase.korean)}
+                        style={styles.iconCircleBtn}
+                      >
+                        <Volume2 size={18} color="#FFFFFF" />
+                      </Pressable>
+                      <Pressable
+                        onPress={() => removeBookmark(phrase.id)}
+                        style={styles.unbookmarkBtn}
+                      >
+                        <AppText variant="caption" color={Palette.danger}>
+                          삭제
+                        </AppText>
+                      </Pressable>
+                    </View>
+                  ))
+                )}
+              </View>
+
+              {/* V3 Vision AI Preview */}
+              <View style={[styles.roadmapCard, styles.roadmapViolet]}>
+                <View style={styles.cardHeaderRow}>
+                  <Sparkles size={18} color={Palette.aiAccent} />
+                  <AppText variant="badge" color={Palette.aiAccent}>
+                    Phase 3 (V3) Vision AI
+                  </AppText>
+                </View>
+                <AppText
+                  variant="h3"
+                  color={Palette.textPrimary}
+                  script="korean"
+                >
+                  AI 고지서 · 계약서 · 처방전 카메라 번역기
+                </AppText>
+                <AppText variant="burmese" color={Palette.textSecondary}>
+                  관리비 မီတာစာရွက်၊ အိမ်ငှားစာချုပ် နှင့် ဆေးစာများကို ဓာတ်ပုံရိုက်ရုံဖြင့် မြန်မာလို အနှစ်ချုပ်ရှင်းပြပေးမည့် AI Scanner (Phase 3)။
                 </AppText>
               </View>
-              <AppText variant="h3" color={Palette.textPrimary} script="korean">
-                아르바이트 급여 · 주휴수당 & 원화(KRW)⇄짯(MMK) 계산기
-              </AppText>
-              <AppText variant="burmese" color={Palette.textSecondary}>
-                အချိန်ပိုင်းအလုပ်လစာ၊ 주휴수당 (အပတ်စဉ်ပိတ်ရက်ဆုကြေး) နှင့် ဝမ် ⇄ ကျပ် ငွေလဲနှုန်းတွက်ချက်စက် (Phase 2 တွင် ပါဝင်မည်)။
-              </AppText>
             </View>
-
-            <View style={[styles.roadmapCard, styles.roadmapViolet]}>
-              <View style={styles.cardHeaderRow}>
-                <Sparkles size={18} color={Palette.aiAccent} />
-                <AppText variant="badge" color={Palette.aiAccent}>
-                  Phase 3 (V3) Vision AI
-                </AppText>
-              </View>
-              <AppText variant="h3" color={Palette.textPrimary} script="korean">
-                AI 고지서 · 계약서 · 처방전 카메라 번역기
-              </AppText>
-              <AppText variant="burmese" color={Palette.textSecondary}>
-                관리비 မီတာစာရွက်၊ အိမ်ငှားစာချုပ် နှင့် ဆေးစာများကို ဓာတ်ပုံရိုက်ရုံဖြင့် မြန်မာလို အနှစ်ချုပ်ရှင်းပြပေးမည့် AI Scanner။
-              </AppText>
-            </View>
-          </View>
+          ) : null}
         </View>
       </ScrollView>
 
@@ -538,6 +734,77 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
+  segmentedControl: {
+    flexDirection: 'row',
+    backgroundColor: Palette.surface,
+    padding: 5,
+    borderRadius: Radius.lg,
+    borderWidth: 1,
+    borderColor: Palette.border,
+    gap: 6,
+  },
+  segmentBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: Spacing.sm,
+    borderRadius: Radius.md,
+  },
+  segmentBtnBlue: {
+    backgroundColor: Palette.secondary,
+  },
+  segmentBtnDanger: {
+    backgroundColor: Palette.danger,
+  },
+  segmentBtnTeal: {
+    backgroundColor: Palette.primary,
+  },
+  sectionStack: {
+    gap: Spacing.lg,
+  },
+  visaCloudCard: {
+    backgroundColor: '#FFFBEB',
+    borderRadius: Radius.xl,
+    padding: Spacing.lg,
+    borderWidth: 1.5,
+    borderColor: '#FDE68A',
+    gap: Spacing.sm,
+  },
+  visaTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  dDayBadge: {
+    backgroundColor: Palette.warning,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: Radius.full,
+  },
+  syncRow: {
+    marginTop: 4,
+    paddingTop: Spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: '#FDE68A',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: Spacing.sm,
+  },
+  syncBtn: {
+    backgroundColor: Palette.secondary,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 8,
+    borderRadius: Radius.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   card: {
     backgroundColor: Palette.surface,
     borderRadius: Radius.xl,
@@ -571,6 +838,10 @@ const styles = StyleSheet.create({
     backgroundColor: Palette.danger,
     borderColor: Palette.danger,
   },
+  selectChipBlue: {
+    backgroundColor: Palette.secondary,
+    borderColor: Palette.secondary,
+  },
   selectChipTeal: {
     backgroundColor: Palette.primary,
     borderColor: Palette.primary,
@@ -603,26 +874,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
   },
-  decoderGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.sm,
-  },
-  decoderCard: {
-    flexGrow: 1,
-    flexBasis: 210,
-    backgroundColor: '#F0FDFA',
-    borderRadius: Radius.lg,
-    padding: Spacing.md,
-    borderWidth: 1,
-    borderColor: '#99F6E4',
-    gap: 2,
-  },
-  decoderHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
   savedPhraseRow: {
     backgroundColor: Palette.background,
     borderRadius: Radius.lg,
@@ -645,26 +896,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
   },
-  roadmapRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.md,
-  },
   roadmapCard: {
-    flexGrow: 1,
-    flexBasis: 260,
     borderRadius: Radius.xl,
     padding: Spacing.lg,
     borderWidth: 1,
     gap: 4,
-  },
-  roadmapBlue: {
-    backgroundColor: Palette.secondarySoft,
-    borderColor: '#93C5FD',
   },
   roadmapViolet: {
     backgroundColor: Palette.aiAccentSoft,
     borderColor: '#C4B5FD',
   },
 });
-

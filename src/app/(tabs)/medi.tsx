@@ -1,8 +1,9 @@
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import {
   AlertCircle,
   CheckSquare,
   ExternalLink,
+  MapPin,
   Pill,
   Square,
   Stethoscope,
@@ -18,6 +19,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { MapFinderCard } from '@/components/medi/MapFinderCard';
+import { PrescriptionDecoderCard } from '@/components/medi/PrescriptionDecoderCard';
 import { DoctorShowModal } from '@/components/modals/DoctorShowModal';
 import { AppText } from '@/components/ui/AppText';
 import {
@@ -44,10 +47,32 @@ import type {
   EmergencyProfile,
 } from '@/types';
 
-type MediTabMode = 'symptoms' | 'otc';
+type MediTabMode = 'symptoms' | 'prescription_otc' | 'maps';
 
 export default function MediHelperScreen() {
-  const [mediTab, setMediTab] = useState<MediTabMode>('symptoms');
+  const params = useLocalSearchParams<{ mode?: string }>();
+  const initialMode: MediTabMode =
+    params.mode === 'prescription_otc'
+      ? 'prescription_otc'
+      : params.mode === 'maps'
+        ? 'maps'
+        : 'symptoms';
+
+  const [mediTab, setMediTab] = useState<MediTabMode>(initialMode);
+  const [lastParamMode, setLastParamMode] = useState<string | undefined>(
+    params.mode
+  );
+  if (params.mode !== lastParamMode) {
+    setLastParamMode(params.mode);
+    if (
+      params.mode === 'symptoms' ||
+      params.mode === 'prescription_otc' ||
+      params.mode === 'maps'
+    ) {
+      setMediTab(params.mode);
+    }
+  }
+
   const [selectedBodyPart, setSelectedBodyPart] =
     useState<BodyPartCategory>('all');
   const [selectedSymptomIds, setSelectedSymptomIds] = useState<string[]>([
@@ -103,10 +128,13 @@ export default function MediHelperScreen() {
     );
   };
 
-  const openNaverMapForDept = (query: string) => {
-    Linking.openURL(
-      `https://map.naver.com/p/search/${encodeURIComponent(query)}`
-    );
+  const openMapForDept = (query: string, provider: 'naver' | 'kakao') => {
+    const encoded = encodeURIComponent(query);
+    const url =
+      provider === 'naver'
+        ? `https://map.naver.com/p/search/${encoded}`
+        : `https://map.kakao.com/link/search/${encoded}`;
+    Linking.openURL(url);
   };
 
   const selectedSpecialNotes = SYMPTOM_SPECIAL_NOTES.filter((n) =>
@@ -123,14 +151,14 @@ export default function MediHelperScreen() {
           {/* Header */}
           <View style={styles.header}>
             <AppText variant="h1" color={Palette.textPrimary} script="korean">
-              의료 · 병원 소통 도우미 (Medi Helper)
+              의료 · 약봉투 · 심야약국 도우미 (Medi Helper)
             </AppText>
             <AppText variant="burmese" color={Palette.textSecondary}>
-              ရောဂါလက္ခဏာများကို ရွေးချယ်ပြီး သွားရမည့် ဆေးခန်းဌာန (내과, 이비인후과, 정형외과) နှင့် ဆရာဝန်ပြရန် ကိုရီးယားစာမျက်နှာပြင် ဖွင့်ပါ။
+              ရောဂါလက္ခဏာပြကတ်၊ ဆေးအိတ်အညွှန်း ဖတ်နည်း (처방전/약봉투) နှင့် အနီးနားရှိ ဆေးခန်း/ညဖွင့်ဆေးဆိုင် (심야약국) မြေပုံရှာဖွေမှု
             </AppText>
           </View>
 
-          {/* Mode Toggle: Symptoms vs OTC Pharmacy */}
+          {/* 3-Way Mode Toggle: Symptoms | Prescription & OTC | Nearby Map */}
           <View style={styles.modeToggleRow}>
             <Pressable
               onPress={() => setMediTab('symptoms')}
@@ -140,37 +168,64 @@ export default function MediHelperScreen() {
               ]}
             >
               <Stethoscope
-                size={18}
+                size={17}
                 color={
                   mediTab === 'symptoms' ? '#FFFFFF' : Palette.textSecondary
                 }
               />
               <AppText
-                variant="bodyBold"
+                variant="badge"
                 color={
                   mediTab === 'symptoms' ? '#FFFFFF' : Palette.textSecondary
                 }
               >
-                증상 선택 · 진료과 추천 (ဆေးခန်းပြရန်)
+                증상 · 진료과
               </AppText>
             </Pressable>
 
             <Pressable
-              onPress={() => setMediTab('otc')}
+              onPress={() => setMediTab('prescription_otc')}
               style={[
                 styles.modeBtn,
-                mediTab === 'otc' && styles.modeBtnActive,
+                mediTab === 'prescription_otc' && styles.modeBtnActive,
               ]}
             >
               <Pill
-                size={18}
-                color={mediTab === 'otc' ? '#FFFFFF' : Palette.textSecondary}
+                size={17}
+                color={
+                  mediTab === 'prescription_otc'
+                    ? '#FFFFFF'
+                    : Palette.textSecondary
+                }
               />
               <AppText
-                variant="bodyBold"
-                color={mediTab === 'otc' ? '#FFFFFF' : Palette.textSecondary}
+                variant="badge"
+                color={
+                  mediTab === 'prescription_otc'
+                    ? '#FFFFFF'
+                    : Palette.textSecondary
+                }
               >
-                약국 · 상비약 (ဆေးဆိုင်သုံးဆေးများ)
+                약봉투 · 상비약
+              </AppText>
+            </Pressable>
+
+            <Pressable
+              onPress={() => setMediTab('maps')}
+              style={[
+                styles.modeBtn,
+                mediTab === 'maps' && styles.modeBtnActive,
+              ]}
+            >
+              <MapPin
+                size={17}
+                color={mediTab === 'maps' ? '#FFFFFF' : Palette.textSecondary}
+              />
+              <AppText
+                variant="badge"
+                color={mediTab === 'maps' ? '#FFFFFF' : Palette.textSecondary}
+              >
+                심야약국 · 지도
               </AppText>
             </Pressable>
           </View>
@@ -219,23 +274,45 @@ export default function MediHelperScreen() {
                                 {dept.nameMm}
                               </AppText>
                             </View>
-                            <Pressable
-                              onPress={() =>
-                                openNaverMapForDept(dept.naverMapQuery)
-                              }
-                              style={styles.mapLinkBtn}
-                            >
-                              <ExternalLink
-                                size={15}
-                                color={Palette.primaryDark}
-                              />
-                              <AppText
-                                variant="badge"
-                                color={Palette.primaryDark}
+                            <View style={styles.mapBtnGroup}>
+                              <Pressable
+                                onPress={() =>
+                                  openMapForDept(dept.naverMapQuery, 'naver')
+                                }
+                                style={styles.mapLinkBtn}
                               >
-                                주변 {dept.nameKo} 지도
-                              </AppText>
-                            </Pressable>
+                                <ExternalLink
+                                  size={13}
+                                  color={Palette.primaryDark}
+                                />
+                                <AppText
+                                  variant="caption"
+                                  color={Palette.primaryDark}
+                                >
+                                  네이버지도
+                                </AppText>
+                              </Pressable>
+                              <Pressable
+                                onPress={() =>
+                                  openMapForDept(dept.naverMapQuery, 'kakao')
+                                }
+                                style={[
+                                  styles.mapLinkBtn,
+                                  { borderColor: Palette.secondary },
+                                ]}
+                              >
+                                <ExternalLink
+                                  size={13}
+                                  color={Palette.secondary}
+                                />
+                                <AppText
+                                  variant="caption"
+                                  color={Palette.secondary}
+                                >
+                                  카카오맵
+                                </AppText>
+                              </Pressable>
+                            </View>
                           </View>
                           <AppText
                             variant="burmese"
@@ -395,13 +472,12 @@ export default function MediHelperScreen() {
                 </View>
               </View>
 
-              {/* Step 3: Symptom Context Selector (Duration, Severity, Special Notes) */}
+              {/* Step 3: Symptom Context Selector */}
               <View style={styles.contextContainer}>
                 <AppText variant="h3" color={Palette.textPrimary}>
                   3. 의사 선생님이 꼭 묻는 질문 (ဆရာဝန်မေးမည့် အချက်အလက်များ ထပ်ဖြည့်ရန်)
                 </AppText>
 
-                {/* Duration */}
                 <AppText variant="subtitle" color={Palette.textSecondary}>
                   • 언제부터 아픈가요? (ဘယ်အချိန်က စဖြစ်တာလဲ?)
                 </AppText>
@@ -435,7 +511,6 @@ export default function MediHelperScreen() {
                   })}
                 </View>
 
-                {/* Severity */}
                 <AppText variant="subtitle" color={Palette.textSecondary}>
                   • 얼마나 아픈가요? (ဘယ်လောက်နာလဲ?)
                 </AppText>
@@ -469,7 +544,6 @@ export default function MediHelperScreen() {
                   })}
                 </View>
 
-                {/* Special Notes */}
                 <AppText variant="subtitle" color={Palette.textSecondary}>
                   • 특별히 알려야 할 사항 (အထူးအခြေအနေ ရှိပါက ရွေးပါ)
                 </AppText>
@@ -504,11 +578,20 @@ export default function MediHelperScreen() {
                 </View>
               </View>
             </>
-          ) : (
-            /* OTC PHARMACY & CONVENIENCE STORE MEDICINES */
+          ) : null}
+
+          {mediTab === 'prescription_otc' ? (
             <View style={styles.otcList}>
+              {/* Interactive Prescription & Medicine Bag Decoder */}
+              <PrescriptionDecoderCard />
+
+              {/* OTC Pharmacy & Convenience Store Medicines */}
               <View style={styles.otcIntroCard}>
-                <AppText variant="h3" color={Palette.primaryDark} script="korean">
+                <AppText
+                  variant="h3"
+                  color={Palette.primaryDark}
+                  script="korean"
+                >
                   야간/주말 약국 및 편의점 상비약 가이드
                 </AppText>
                 <AppText variant="burmese" color={Palette.textSecondary}>
@@ -562,7 +645,9 @@ export default function MediHelperScreen() {
                 </View>
               ))}
             </View>
-          )}
+          ) : null}
+
+          {mediTab === 'maps' ? <MapFinderCard /> : null}
         </View>
       </ScrollView>
 
@@ -630,7 +715,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: 6,
     paddingVertical: Spacing.sm,
     borderRadius: Radius.md,
   },
@@ -678,10 +763,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
+    flexWrap: 'wrap',
     gap: Spacing.sm,
   },
   flex1: {
     flex: 1,
+  },
+  mapBtnGroup: {
+    flexDirection: 'row',
+    gap: 6,
   },
   mapLinkBtn: {
     flexDirection: 'row',
@@ -689,7 +779,7 @@ const styles = StyleSheet.create({
     gap: 4,
     backgroundColor: Palette.surface,
     paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingVertical: 5,
     borderRadius: Radius.full,
     borderWidth: 1,
     borderColor: Palette.primary,
@@ -874,4 +964,3 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
 });
-

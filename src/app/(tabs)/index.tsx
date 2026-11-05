@@ -286,7 +286,12 @@ export default function HomeScreen() {
             </Pressable>
 
             <Pressable
-              onPress={() => router.push('/tools')}
+              onPress={() =>
+                router.push({
+                  pathname: '/tools',
+                  params: { section: 'calculators' },
+                })
+              }
               style={({ pressed }) => [
                 styles.categoryCard,
                 pressed && styles.cardPressed,
@@ -295,31 +300,36 @@ export default function HomeScreen() {
               <View
                 style={[
                   styles.catIconCircle,
-                  { backgroundColor: Palette.dangerSoft },
+                  { backgroundColor: Palette.secondarySoft },
                 ]}
               >
-                <AlertTriangle size={22} color={Palette.danger} />
+                <Sparkles size={22} color={Palette.secondary} />
               </View>
               <AppText variant="h3" color={Palette.textPrimary} script="korean">
-                내 응급 · 주소 카드 관리
+                알바 급여 · 주휴수당 · 환율 계산기
               </AppText>
               <AppText variant="burmese" color={Palette.textSecondary}>
-                သွေးအမျိုးအစား၊ ဆေးဓာတ်မတည့်မှု နှင့် ကိုရီးယားလိပ်စာကတ် သိမ်းဆည်းရန်
+                အချိန်ပိုင်းအလုပ်လစာ၊ 주휴수당 နှင့် ဝမ် ⇄ မြန်မာကျပ်/သိန်း ငွေလဲနှုန်းတွက်ချက်ရန်
               </AppText>
             </Pressable>
           </View>
 
-          {/* V2 Visa Expiry Countdown & V3 AI Scanner Hooks */}
+          {/* V2 Visa Expiry Countdown, Prescription Decoder & Night Pharmacy Map */}
           <View style={styles.sectionTitleRow}>
             <AppText variant="h3" color={Palette.textPrimary}>
-              스마트 비자 · AI 스캐너 · ဗီဇာသတိပေးချက် နှင့် AI စနစ်
+              비자 알림 · 약봉투 해독 · 심야약국 지도 (V2 도구)
             </AppText>
           </View>
 
           <View style={styles.featureHooksRow}>
             {/* Visa Countdown Widget (Connected to EmergencyProfile) */}
             <Pressable
-              onPress={() => router.push('/tools')}
+              onPress={() =>
+                router.push({
+                  pathname: '/tools',
+                  params: { section: 'emergency_visa' },
+                })
+              }
               style={[styles.hookCard, styles.visaHookCard]}
             >
               <View style={styles.hookHeaderRow}>
@@ -346,31 +356,36 @@ export default function HomeScreen() {
                 체류기간 만료 예정일: {profile.visaExpiryDate}
               </AppText>
               <AppText variant="burmese" color={Palette.textSecondary}>
-                ဗီဇာမကုန်မီ ၄ လအလိုမှစ၍ သက်တမ်းတိုးနိုင်ပါသည်။ Tools တွင် သင့်ဗီဇာကုန်ဆုံးရက် ပြင်ဆင်မှတ်သားထားနိုင်ပါသည်။
+                ဗီဇာမကုန်မီ ၄ လအလိုမှစ၍ သက်တမ်းတိုးနိုင်ပါသည်။ ဗီဇာကုန်ဆုံးရက် နှင့် Cloud Backup ကို ဤနေရာတွင် စစ်ဆေးပါ။
               </AppText>
             </Pressable>
 
-            {/* V3 Vision AI Document Scanner Hook */}
+            {/* Prescription Bag Decoder & Night Pharmacy Map Card */}
             <Pressable
-              onPress={() => router.push('/tools')}
+              onPress={() =>
+                router.push({
+                  pathname: '/medi',
+                  params: { mode: 'prescription_otc' },
+                })
+              }
               style={[styles.hookCard, styles.aiHookCard]}
             >
               <View style={styles.hookHeaderRow}>
                 <View style={styles.aiBadge}>
                   <Sparkles size={16} color="#FFFFFF" />
                   <AppText variant="badge" color="#FFFFFF">
-                    V3 AI 스캐너 · 처방전 해독
+                    처방전 해독 · 심야약국 지도
                   </AppText>
                 </View>
                 <AppText variant="caption" color={Palette.aiAccent}>
-                  Tools & Roadmap
+                  Medi & Map
                 </AppText>
               </View>
               <AppText variant="h3" color={Palette.textPrimary} script="korean">
-                관리비 고지서 · 약봉투 · 계약서 AI 미얀마어 요약
+                약봉투 복용법 해독기 & 주변 심야약국 찾기
               </AppText>
               <AppText variant="burmese" color={Palette.textSecondary}>
-                ဆေးအိတ် (처방전/약봉투) သောက်နည်း၊ မီတာ/관리비 စာရွက် နှင့် အချိန်ပိုင်းလစာ (주휴수당) တွက်ချက်စက်များကို Tools တွင် ကြည့်ရှုပါ။
+                ဆေးအိတ် (처방전/약봉투: 식후 30분, 1일 3회) အဓိပ္ပာယ်ဖတ်နည်း နှင့် ညဖွင့်ဆေးဆိုင် (심야약국) Naver/KakaoMap မြေပုံရှာဖွေရန်။
               </AppText>
             </Pressable>
           </View>
