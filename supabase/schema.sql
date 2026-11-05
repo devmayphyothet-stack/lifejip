@@ -1,0 +1,82 @@
+-- LifeJip V1 Supabase Database Schema
+-- Offline-first cloud sync tables for admin_guides, recycling_items, medical_symptoms, situation_vocabs
+
+create extension if not exists "uuid-ossp";
+
+-- 1. Admin Guides & Step-by-Step Checklists
+create table if not exists public.admin_guides (
+  id text primary key,
+  category text not null check (category in ('arc', 'visa', 'banking', 'housing')),
+  title_ko text not null,
+  title_mm text not null,
+  subtitle_mm text not null,
+  badge_text text not null,
+  estimated_time text not null,
+  official_url text,
+  steps jsonb not null default '[]'::jsonb,
+  sort_order integer not null default 0,
+  updated_at timestamptz not null default now()
+);
+
+-- 2. Recycling Rules (분리수거)
+create table if not exists public.recycling_items (
+  id text primary key,
+  category text not null check (category in ('general', 'food', 'plastic', 'vinyl', 'can_glass', 'paper')),
+  category_ko text not null,
+  category_mm text not null,
+  name_ko text not null,
+  name_mm text not null,
+  how_to_dispose_mm text not null,
+  warning_mm text not null,
+  keywords text[] not null default '{}',
+  bag_type_ko text not null,
+  sort_order integer not null default 0,
+  updated_at timestamptz not null default now()
+);
+
+-- 3. Medical Symptoms & Clinic Department Mapping
+create table if not exists public.medical_symptoms (
+  id text primary key,
+  body_part text not null check (body_part in ('head', 'throat_resp', 'stomach', 'dental', 'skin', 'joint_muscle', 'eye_ear')),
+  symptom_ko text not null,
+  doctor_sentence_ko text not null,
+  symptom_mm text not null,
+  pronunciation_mm text not null,
+  department_id text not null,
+  is_urgent boolean not null default false,
+  sort_order integer not null default 0,
+  updated_at timestamptz not null default now()
+);
+
+-- 4. Situation Phrasebook (출입국, 은행, 부동산, 병원 접수, 약국)
+create table if not exists public.situation_vocabs (
+  id text primary key,
+  category text not null check (category in ('immigration', 'bank', 'realestate', 'hospital', 'pharmacy')),
+  category_ko text not null,
+  category_mm text not null,
+  korean text not null,
+  burmese text not null,
+  pronunciation_mm text not null,
+  usage_tip_mm text,
+  sort_order integer not null default 0,
+  updated_at timestamptz not null default now()
+);
+
+-- Enable Row Level Security (Public Read Access for V1 Offline-First Sync)
+alter table public.admin_guides enable row level security;
+alter table public.recycling_items enable row level security;
+alter table public.medical_symptoms enable row level security;
+alter table public.situation_vocabs enable row level security;
+
+create policy "Allow public read on admin_guides"
+  on public.admin_guides for select using (true);
+
+create policy "Allow public read on recycling_items"
+  on public.recycling_items for select using (true);
+
+create policy "Allow public read on medical_symptoms"
+  on public.medical_symptoms for select using (true);
+
+create policy "Allow public read on situation_vocabs"
+  on public.situation_vocabs for select using (true);
+

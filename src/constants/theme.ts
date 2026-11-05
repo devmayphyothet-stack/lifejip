@@ -1,65 +1,97 @@
-/**
- * Below are the colors that are used in the app. The colors are defined in the light and dark mode.
- * There are many other ways to style your app. For example, [Nativewind](https://www.nativewind.dev/), [Tamagui](https://tamagui.dev/), [unistyles](https://unistyl.es/), etc.
- */
-
 import '@/global.css';
-
 import { Platform } from 'react-native';
 
+/**
+ * LifeJip Theme System
+ * Concept: "Clean Utility, Trustworthy Admin & Calm Healthcare"
+ */
+export const Palette = {
+  primary: '#0D9488', // Emerald Teal — Medical Helper, Recycling, active tabs, primary buttons
+  primaryDark: '#0F766E', // Pressed/Hover states
+  primarySoft: '#CCFBF1', // Soft teal tint for pills & active backgrounds
+  secondary: '#2563EB', // Trust Royal Blue — Admin Checklists, Banking, Wage Calculators
+  secondaryDark: '#1D4ED8',
+  secondarySoft: '#DBEAFE', // Soft blue background for admin cards
+  danger: '#E11D48', // Coral Red — 119/SOS emergency bar, allergy alerts, warnings
+  sos: '#E11D48', // Alias for danger / SOS emergency elements
+  dangerSoft: '#FFE4E6', // Light red background for emergency cards
+  aiAccent: '#7C3AED', // Electric Violet — V3 AI Scanner features
+  aiAccentSoft: '#EDE9FE',
+  background: '#F8FAFC', // Cool Alabaster — main screen background
+  surface: '#FFFFFF', // Pure White — cards, modals, bottom sheets
+  surfaceSubtle: '#F1F5F9', // Secondary surface / subtle container
+  border: '#E2E8F0', // 1px card borders and dividers
+  textPrimary: '#0F172A', // Slate Charcoal — Korean headings and main text
+  textSecondary: '#475569', // Muted Slate — Burmese explanations and subtitles
+  textMuted: '#94A3B8', // Placeholder and helper captions
+  success: '#10B981', // Completed checklist items
+  successSoft: '#D1FAE5',
+  warning: '#F59E0B', // Visa expiry alerts & scam warnings
+  warningSoft: '#FEF3C7',
+} as const;
+
 export const Colors = {
+  ...Palette,
   light: {
-    text: '#000000',
-    background: '#ffffff',
-    backgroundElement: '#F0F0F3',
-    backgroundSelected: '#E0E1E6',
-    textSecondary: '#60646C',
+    text: Palette.textPrimary,
+    textSecondary: Palette.textSecondary,
+    background: Palette.background,
+    surface: Palette.surface,
+    border: Palette.border,
+    tint: Palette.primary,
   },
   dark: {
-    text: '#ffffff',
-    background: '#000000',
-    backgroundElement: '#212225',
-    backgroundSelected: '#2E3135',
-    textSecondary: '#B0B4BA',
+    text: Palette.textPrimary,
+    textSecondary: Palette.textSecondary,
+    background: Palette.background,
+    surface: Palette.surface,
+    border: Palette.border,
+    tint: Palette.primary,
   },
 } as const;
 
-export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;
-
-export const Fonts = Platform.select({
-  ios: {
-    /** iOS `UIFontDescriptorSystemDesignDefault` */
-    sans: 'system-ui',
-    /** iOS `UIFontDescriptorSystemDesignSerif` */
-    serif: 'ui-serif',
-    /** iOS `UIFontDescriptorSystemDesignRounded` */
-    rounded: 'ui-rounded',
-    /** iOS `UIFontDescriptorSystemDesignMonospaced` */
-    mono: 'ui-monospace',
-  },
-  default: {
-    sans: 'normal',
-    serif: 'serif',
-    rounded: 'normal',
-    mono: 'monospace',
-  },
-  web: {
-    sans: 'var(--font-display)',
-    serif: 'var(--font-serif)',
-    rounded: 'var(--font-rounded)',
-    mono: 'var(--font-mono)',
-  },
-});
+export const Fonts = {
+  korean: Platform.select({
+    web: "'Pretendard', 'Noto Sans KR', system-ui, -apple-system, sans-serif",
+    ios: 'System',
+    android: 'sans-serif-medium',
+    default: 'sans-serif',
+  }),
+  burmese: Platform.select({
+    web: "'Noto Sans Myanmar', 'Padauk', 'Myanmar Text', system-ui, sans-serif",
+    ios: 'Myanmar Sangam MN',
+    android: 'sans-serif',
+    default: 'sans-serif',
+  }),
+  dual: Platform.select({
+    web: "'Pretendard', 'Noto Sans KR', 'Noto Sans Myanmar', system-ui, sans-serif",
+    default: undefined,
+  }),
+  mono: Platform.select({
+    web: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+    ios: 'Menlo',
+    android: 'monospace',
+    default: 'monospace',
+  }),
+} as const;
 
 export const Spacing = {
-  half: 2,
-  one: 4,
-  two: 8,
-  three: 16,
-  four: 24,
-  five: 32,
-  six: 64,
+  xs: 4,
+  sm: 8,
+  md: 12,
+  lg: 16,
+  xl: 20,
+  xxl: 24,
+  xxxl: 32,
 } as const;
 
-export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;
-export const MaxContentWidth = 800;
+export const Radius = {
+  sm: 8,
+  md: 12,
+  lg: 16,
+  xl: 20,
+  full: 9999,
+} as const;
+
+export const WebBreakpoint = 768;
+export const MaxContentWidth = 1040;
